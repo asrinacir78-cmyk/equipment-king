@@ -15,10 +15,15 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DeviceList.ItemsSource = _devices;
-        Loaded += async (_, _) => await RefreshDevicesAsync();
-        _refreshTimer.Tick += async (_, _) => await RefreshDevicesAsync();
+        Loaded += Window_Loaded;
+        _refreshTimer.Tick += RefreshTimer_Tick;
+        Closed += (_, _) => _refreshTimer.Stop();
         _refreshTimer.Start();
     }
+
+    private async void Window_Loaded(object sender, RoutedEventArgs e) => await RefreshDevicesAsync();
+
+    private void RefreshTimer_Tick(object? sender, EventArgs e) => _ = RefreshDevicesAsync();
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await RefreshDevicesAsync();
 
@@ -43,9 +48,10 @@ public partial class MainWindow : Window
             EmptyState.Visibility = _devices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             UpdateText.Text = result.Error is null ? $"Updated {DateTime.Now:t}" : result.Error;
         }
-        catch
+        catch (Exception exception)
         {
-            UpdateText.Text = "Windows device scan failed";
+            App.LogException("Device scan", exception);
+            UpdateText.Text = "Scan failed. Details saved to the local log.";
             EmptyState.Visibility = _devices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         finally
