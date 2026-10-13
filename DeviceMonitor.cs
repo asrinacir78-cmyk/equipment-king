@@ -15,7 +15,9 @@ public sealed class DeviceMonitor
         "System.Devices.BatteryLife",
         "System.Devices.Aep.IsConnected",
         "System.Devices.ContainerId",
-        "System.Devices.DeviceInstanceId"
+        "System.Devices.DeviceInstanceId",
+        "System.Devices.Parent",
+        "System.Devices.InterfaceClassGuid"
     ];
 
     private static readonly (ushort Page, ushort Usage, string Category)[] HidUsages =
@@ -38,14 +40,21 @@ public sealed class DeviceMonitor
                 BluetoothDevice.GetDeviceSelectorFromPairingState(true), PropertiesToRead);
             foreach (var info in pairedBluetooth)
             {
-                var connected = await ReadBluetoothConnectionStateAsync(info);
-                var entry = CreateEntry(info, "Bluetooth", connected);
-                AddOrMerge(devices, entry);
+                try
+                {
+                    var connected = await ReadBluetoothConnectionStateAsync(info);
+                    AddOrMerge(devices, CreateEntry(info, "Bluetooth", connected, "Bluetooth"));
+                }
+                catch (Exception exception)
+                {
+                    App.LogException("Bluetooth device scan", exception);
+                }
             }
         }
-        catch
+        catch (Exception exception)
         {
             issues.Add("Bluetooth scan unavailable");
+            App.LogException("Bluetooth scan", exception);
         }
 
         foreach (var usage in HidUsages)
@@ -58,13 +67,42 @@ public sealed class DeviceMonitor
                 {
                     if (!info.IsEnabled || string.IsNullOrWhiteSpace(info.Name))
                         continue;
-                    AddOrMerge(devices, CreateEntry(info, usage.Category, isConnected: true));
+                    AddOrMerge(devices, CreateEntry(info, usage.Category, isConnected: true,
+                        transport: DetermineTransport(info)));
                 }
             }
-            catch
+            catch (Exception exception)
             {
                 // Keep scanning other HID usages if a vendor driver blocks one collection.
+                App.LogException($"{usage.Category} HID scan", exception);
             }
+        }
+
+        try
+        {
+            var allDevicesSelector = DeviceInformation.GetAqsFilterFromDeviceClass(DeviceClass.All);
+            var allDevices = await DeviceInformation.FindAllAsync(
+                allDevicesSelector, PropertiesToRead, DeviceInformationKind.Device);
+            foreach (var info in allDevices)
+            {
+                try
+                {
+                    if (!info.IsEnabled || string.IsNullOrWhiteSpace(info.Name) ||
+                        IsBluetoothDevice(info) || !IsUsbDevice(info))
+                        continue;
+
+                    AddOrMerge(devices, CreateEntry(info, "USB", isConnected: true, transport: "USB"));
+                }
+                catch (Exception exception)
+                {
+                    App.LogException("USB device entry", exception);
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            issues.Add("USB device scan unavailable");
+            App.LogException("USB device scan", exception);
         }
 
         await ApplyBatteryControllerReportsAsync(devices);
@@ -94,7 +132,7 @@ public sealed class DeviceMonitor
         return ReadBoolean(info, "System.Devices.Aep.IsConnected");
     }
 
-    private static DeviceEntry CreateEntry(DeviceInformation info, string source, bool isConnected)
+    private static DeviceEntry CreateEntry(DeviceInformation info, string source, bool isConnected, string? transport = null)
     {
         var name = string.IsNullOrWhiteSpace(info.Name) ? "Wireless accessory" : info.Name.Trim();
         var propertyBattery = ReadBatteryPercent(info);
@@ -106,6 +144,7 @@ public sealed class DeviceMonitor
             DeviceInstanceId = ReadString(info, "System.Devices.DeviceInstanceId"),
             Name = name,
             Category = GuessCategory(name, source),
+            Transport = transport ?? DetermineTransport(info),
             Icon = GuessIcon(name, source),
             IsConnected = isConnected,
             BatteryPercent = propertyBattery,
@@ -236,8 +275,37 @@ public sealed class DeviceMonitor
             existing.Name = candidate.Name;
         existing.ContainerId ??= candidate.ContainerId;
         existing.DeviceInstanceId ??= candidate.DeviceInstanceId;
+        if (TransportPriority(candidate.Transport) > TransportPriority(existing.Transport))
+            existing.Transport = candidate.Transport;
         if (candidate.Category != "Wireless accessory") existing.Category = candidate.Category;
     }
+
+    private static string DetermineTransport(DeviceInformation info)
+    {
+        if (IsBluetoothDevice(info)) return "Bluetooth";
+        return IsUsbDevice(info) ? "USB" : "HID";
+    }
+
+    private static bool IsBluetoothDevice(DeviceInformation info)
+    {
+        var identity = $"{info.Id} {ReadString(info, "System.Devices.DeviceInstanceId")}";
+        return identity.Contains("BTH", StringComparison.OrdinalIgnoreCase) ||
+               identity.Contains("Bluetooth", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUsbDevice(DeviceInformation info)
+    {
+        var identity = $"{info.Id} {ReadString(info, "System.Devices.DeviceInstanceId")} {ReadString(info, "System.Devices.Parent")}";
+        return identity.Contains("USB\\", StringComparison.OrdinalIgnoreCase) ||
+               identity.Contains("USB#", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int TransportPriority(string transport) => transport switch
+    {
+        "Bluetooth" or "USB" => 2,
+        "HID" => 1,
+        _ => 0
+    };
 
     private static int? ReadBatteryPercent(DeviceInformation info)
     {
@@ -277,7 +345,12 @@ public sealed class DeviceMonitor
         if (text.Contains("keyboard") || text.Contains("keypad")) return "Keyboard";
         if (text.Contains("headphone") || text.Contains("headset") || text.Contains("earbud")) return "Audio";
         if (text.Contains("gamepad") || text.Contains("controller") || text.Contains("joystick")) return "Controller";
-        return fallback;
+        return fallback switch
+        {
+            "USB" => "USB device",
+            "Bluetooth" => "Bluetooth accessory",
+            _ => fallback
+        };
     }
 
     private static string GuessIcon(string name, string fallback) => GuessCategory(name, fallback) switch

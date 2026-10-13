@@ -8,6 +8,7 @@ public sealed class DeviceEntry : INotifyPropertyChanged
 {
     private int? _batteryPercent;
     private bool _isConnected;
+    private string _transport = "HID";
 
     public required string Id { get; init; }
     public string? Source { get; set; }
@@ -15,6 +16,16 @@ public sealed class DeviceEntry : INotifyPropertyChanged
     public string? DeviceInstanceId { get; set; }
     public string Name { get; set; } = "Wireless accessory";
     public string Category { get; set; } = "Accessory";
+    public string Transport
+    {
+        get => _transport;
+        set
+        {
+            if (_transport == value) return;
+            _transport = value;
+            OnPropertyChanged();
+        }
+    }
     public string Icon { get; set; } = "◉";
     public string BatteryNote { get; set; } = "Battery level";
 

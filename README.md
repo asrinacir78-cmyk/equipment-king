@@ -5,10 +5,12 @@ Equipment King is a small Windows desktop app that shows the names, connection s
 ## Features
 
 - Lists paired Bluetooth accessories and shows whether Windows reports them as connected.
-- Scans common USB receiver HID collections, including mice, keyboards, joysticks, game controllers, and consumer-control devices.
+- Lists enabled USB devices that Windows exposes, including wired audio, storage, mouse, keyboard, controller, and receiver interfaces.
+- Labels the connection type alongside the device category.
 - Reads battery percentages exposed through Windows device properties and Windows battery controllers.
 - Reads the standard Bluetooth LE Battery Service when a connected accessory provides it.
 - Refreshes automatically every 30 seconds and on demand.
+- Keeps the window open when a device scan raises a recoverable error and writes diagnostic details to `%LOCALAPPDATA%\EquipmentKing\equipment-king.log`.
 
 ## Battery support
 

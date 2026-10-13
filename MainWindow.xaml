@@ -74,7 +74,7 @@
             </Border>
         </Grid>
         <Grid Grid.Row="2" Margin="1,0,1,12">
-            <TextBlock Text="Paired and connected accessories" FontSize="17" FontWeight="SemiBold" />
+            <TextBlock Text="Connected devices" FontSize="17" FontWeight="SemiBold" />
             <TextBlock x:Name="UpdateText" Text="Looking for devices…" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" />
         </Grid>
         <Grid Grid.Row="3">
@@ -94,6 +94,8 @@
                                                 <TextBlock Text="{Binding ConnectionText}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0" />
                                                 <TextBlock Text=" · " Foreground="#607182" FontSize="11" />
                                                 <TextBlock Text="{Binding Category}" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                                                <TextBlock Text=" · " Foreground="#607182" FontSize="11" />
+                                                <TextBlock Text="{Binding Transport}" Foreground="{StaticResource MutedBrush}" FontSize="11" />
                                             </StackPanel>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="12,0,10,0">
@@ -111,11 +113,11 @@
             <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="410" Visibility="Collapsed">
                 <TextBlock Text="◉" FontSize="42" Foreground="#4A6A60" HorizontalAlignment="Center" />
                 <TextBlock Text="No accessories found" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0" />
-                <TextBlock Text="Pair a Bluetooth device or connect its wireless receiver, then refresh." Foreground="{StaticResource MutedBrush}" FontSize="12" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
+                <TextBlock Text="Connect a USB device or pair a Bluetooth device, then refresh." Foreground="{StaticResource MutedBrush}" FontSize="12" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
             </StackPanel>
         </Grid>
         <TextBlock Grid.Row="4" Margin="2,13,2,0" Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap">
-            Battery readings depend on what Windows and the device report. Some receiver-based accessories need vendor software to expose battery data.
+            Windows-listed USB and Bluetooth devices appear here. Battery readings depend on what Windows and the device report.
         </TextBlock>
     </Grid>
 </Window>
