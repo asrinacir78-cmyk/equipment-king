@@ -23,7 +23,7 @@ public partial class MainWindow : Window
 
     private async void Window_Loaded(object sender, RoutedEventArgs e) => await RefreshDevicesAsync();
 
-    private void RefreshTimer_Tick(object? sender, EventArgs e) => _ = RefreshDevicesAsync();
+    private async void RefreshTimer_Tick(object? sender, EventArgs e) => await RefreshDevicesAsync();
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await RefreshDevicesAsync();
 
@@ -33,11 +33,11 @@ public partial class MainWindow : Window
             return;
 
         _refreshInProgress = true;
-        RefreshButton.IsEnabled = false;
-        UpdateText.Text = "Scanning Windows device reports…";
 
         try
         {
+            RefreshButton.IsEnabled = false;
+            UpdateText.Text = "Scanning Windows device reports…";
             var result = await _monitor.ScanAsync();
             _devices.Clear();
             foreach (var device in result.Devices)
@@ -56,8 +56,9 @@ public partial class MainWindow : Window
         }
         finally
         {
-            RefreshButton.IsEnabled = true;
             _refreshInProgress = false;
+            if (IsLoaded && IsVisible)
+                RefreshButton.IsEnabled = true;
         }
     }
 }
