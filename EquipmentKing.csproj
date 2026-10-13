@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>EquipmentKing</AssemblyName>
     <RootNamespace>EquipmentKing</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Authors>Equipment King contributors</Authors>
-    <Description>See battery levels and connection status for Bluetooth and USB devices on Windows.</Description>
+    <Description>Monitor Bluetooth and USB device battery levels in an isolated Windows scan process.</Description>
   </PropertyGroup>
 
 </Project>
