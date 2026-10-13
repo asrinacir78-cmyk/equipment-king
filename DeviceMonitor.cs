@@ -31,17 +31,30 @@ public sealed class DeviceMonitor
 
     public async Task<DeviceScanResult> ScanAsync()
     {
+        if (!App.IsScanWorker)
+            return await DeviceScanWorker.RunAsync();
+
+        return await ScanDevicesAsync();
+    }
+
+    private async Task<DeviceScanResult> ScanDevicesAsync()
+    {
         var devices = new List<DeviceEntry>();
         var issues = new List<string>();
+        App.LogMessage("Scan stage: Bluetooth enumeration starting");
 
         try
         {
             var pairedBluetooth = await DeviceInformation.FindAllAsync(
                 BluetoothDevice.GetDeviceSelectorFromPairingState(true), PropertiesToRead);
+            App.LogMessage($"Scan stage: Bluetooth enumeration returned {pairedBluetooth.Count} paired devices");
+            var bluetoothIndex = 0;
             foreach (var info in pairedBluetooth)
             {
+                bluetoothIndex++;
                 try
                 {
+                    App.LogMessage($"Scan stage: Bluetooth connection check {bluetoothIndex}/{pairedBluetooth.Count}");
                     var connected = await ReadBluetoothConnectionStateAsync(info);
                     AddOrMerge(devices, CreateEntry(info, "Bluetooth", connected, "Bluetooth"));
                 }
@@ -57,12 +70,15 @@ public sealed class DeviceMonitor
             App.LogException("Bluetooth scan", exception);
         }
 
+        App.LogMessage("Scan stage: HID enumeration starting");
         foreach (var usage in HidUsages)
         {
             try
             {
+                App.LogMessage($"Scan stage: {usage.Category} HID enumeration starting");
                 var selector = HidDevice.GetDeviceSelector(usage.Page, usage.Usage);
                 var hidDevices = await DeviceInformation.FindAllAsync(selector, PropertiesToRead);
+                App.LogMessage($"Scan stage: {usage.Category} HID enumeration returned {hidDevices.Count} devices");
                 foreach (var info in hidDevices)
                 {
                     if (!info.IsEnabled || string.IsNullOrWhiteSpace(info.Name))
@@ -78,15 +94,21 @@ public sealed class DeviceMonitor
             }
         }
 
+        App.LogMessage("Scan stage: USB device enumeration starting");
         try
         {
             var allDevicesSelector = DeviceInformation.GetAqsFilterFromDeviceClass(DeviceClass.All);
             var allDevices = await DeviceInformation.FindAllAsync(
                 allDevicesSelector, PropertiesToRead, DeviceInformationKind.Device);
+            App.LogMessage($"Scan stage: Windows returned {allDevices.Count} device nodes for USB filtering");
+            var usbIndex = 0;
             foreach (var info in allDevices)
             {
+                usbIndex++;
                 try
                 {
+                    if (usbIndex % 25 == 0)
+                        App.LogMessage($"Scan stage: processed {usbIndex}/{allDevices.Count} device nodes");
                     if (!info.IsEnabled || string.IsNullOrWhiteSpace(info.Name) ||
                         IsBluetoothDevice(info) || !IsUsbDevice(info))
                         continue;
@@ -98,6 +120,7 @@ public sealed class DeviceMonitor
                     App.LogException("USB device entry", exception);
                 }
             }
+            App.LogMessage($"Scan stage: USB filtering completed; {devices.Count} combined devices found");
         }
         catch (Exception exception)
         {
@@ -105,8 +128,11 @@ public sealed class DeviceMonitor
             App.LogException("USB device scan", exception);
         }
 
+        App.LogMessage("Scan stage: Windows battery controllers starting");
         await ApplyBatteryControllerReportsAsync(devices);
+        App.LogMessage("Scan stage: Bluetooth LE battery queries starting");
         await FillMissingBluetoothLeBatteryLevelsAsync(devices);
+        App.LogMessage("Scan stage: device sort starting");
 
         devices.Sort((left, right) =>
         {
@@ -114,6 +140,7 @@ public sealed class DeviceMonitor
             return connected != 0 ? connected : string.Compare(left.Name, right.Name, StringComparison.CurrentCultureIgnoreCase);
         });
 
+        App.LogMessage($"Scan stage: scan completed with {devices.Count} devices");
         return new DeviceScanResult(devices, issues.Count == 0 ? null : string.Join(" · ", issues));
     }
 
