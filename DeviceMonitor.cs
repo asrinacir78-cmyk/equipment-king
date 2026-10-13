@@ -81,7 +81,8 @@ public sealed class DeviceMonitor
         try
         {
             var allDevicesSelector = DeviceInformation.GetAqsFilterFromDeviceClass(DeviceClass.All);
-            var allDevices = await DeviceInformation.FindAllAsync(allDevicesSelector, PropertiesToRead);
+            var allDevices = await DeviceInformation.FindAllAsync(
+                allDevicesSelector, PropertiesToRead, DeviceInformationKind.Device);
             foreach (var info in allDevices)
             {
                 try
@@ -344,7 +345,12 @@ public sealed class DeviceMonitor
         if (text.Contains("keyboard") || text.Contains("keypad")) return "Keyboard";
         if (text.Contains("headphone") || text.Contains("headset") || text.Contains("earbud")) return "Audio";
         if (text.Contains("gamepad") || text.Contains("controller") || text.Contains("joystick")) return "Controller";
-        return fallback;
+        return fallback switch
+        {
+            "USB" => "USB device",
+            "Bluetooth" => "Bluetooth accessory",
+            _ => fallback
+        };
     }
 
     private static string GuessIcon(string name, string fallback) => GuessCategory(name, fallback) switch
